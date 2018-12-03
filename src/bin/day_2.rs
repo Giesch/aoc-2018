@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::iter::Iterator;
 
 fn main() {
-    let input = include_str!("../day_2_input.txt");
+    let input = include_str!("../input/day_2_input.txt");
 
     let solution_one = part_one(input);
     println!("Part One: {}", solution_one);
