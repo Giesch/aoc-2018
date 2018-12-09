@@ -1,7 +1,7 @@
 #![feature(slice_patterns)]
 
-use std::collections::{HashMap, HashSet};
 use std::cmp::Ordering;
+use std::collections::{HashMap, HashSet};
 
 type StdResult<T> = Result<T, Box<std::error::Error>>;
 
@@ -65,12 +65,9 @@ fn sleep_map(data: Vec<NightData>) -> HashMap<i32, HashMap<i32, i32>> {
     result
 }
 
-
 fn to_night_data(input: &str) -> StdResult<Vec<NightData>> {
     let mut lines = parse_log_lines(input)?;
-    lines.sort_by(|x, y| {
-        x.timestamp().cmp(y.timestamp())
-    });
+    lines.sort_by(|x, y| x.timestamp().cmp(y.timestamp()));
 
     let mut result = vec![];
     let mut current_data: Option<NightData> = None;
@@ -106,25 +103,32 @@ fn part_one(input: &str) -> StdResult<i32> {
     let sleep_map = sleep_map(to_night_data(input)?);
 
     let guard_id = sleepiest_guard(&sleep_map)?;
-    let our_guy = sleep_map.get(&guard_id).ok_or("sleepiest guard is broken")?;
+    let our_guy = sleep_map
+        .get(&guard_id)
+        .ok_or("sleepiest guard is broken")?;
 
-    let (minute, _) = our_guy.iter().max_by(|x, y| {
-        let (_left_k, left_v) = x;
-        let (_right_k, right_v) = y;
-        left_v.cmp(right_v)
-    }).ok_or("empty guard data")?;
+    let (minute, _) = our_guy
+        .iter()
+        .max_by(|x, y| {
+            let (_left_k, left_v) = x;
+            let (_right_k, right_v) = y;
+            left_v.cmp(right_v)
+        })
+        .ok_or("empty guard data")?;
 
     Ok(minute * guard_id)
 }
 
 fn sleepiest_guard(sleep_map: &HashMap<i32, HashMap<i32, i32>>) -> StdResult<i32> {
-    let (k, _v) = sleep_map.iter()
+    let (k, _v) = sleep_map
+        .iter()
         .map(|(k, v)| (k, v.values().sum::<i32>()))
         .max_by(|x, y| {
             let (_, lv) = x;
             let (_, rv) = y;
             lv.cmp(rv)
-        }).ok_or("empty data")?;
+        })
+        .ok_or("empty data")?;
 
     Ok(*k)
 }
@@ -202,27 +206,8 @@ impl LogLine {
         match self {
             LogLine::Guard(_, ts) => ts,
             LogLine::Fall(ts) => ts,
-            LogLine::Wake(ts) => ts
+            LogLine::Wake(ts) => ts,
         }
-    }
-}
-
-impl PartialEq for LogLine {
-    fn eq(&self, other: &Self) -> bool {
-        self.timestamp() == other.timestamp()
-    }
-}
-impl Eq for LogLine {}
-
-impl PartialOrd for LogLine {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for LogLine {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.timestamp().cmp(other.timestamp())
     }
 }
 
