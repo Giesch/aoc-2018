@@ -11,11 +11,20 @@ fn main() -> StdResult<()> {
     let solution_one = part_one(input)?;
     println!("Part One: {}", solution_one);
 
+    let solution_two = part_two(input)?;
+    println!("Part Two: {}", solution_two);
+
     Ok(())
 }
 
 fn parse_log_lines(input: &str) -> StdResult<Vec<LogLine>> {
-    input.lines().map(LogLine::parse).collect()
+    let mut lines = input
+        .lines()
+        .map(LogLine::parse)
+        .collect::<StdResult<Vec<LogLine>>>()?;
+    lines.sort_by(|x, y| x.timestamp().cmp(y.timestamp()));
+
+    Ok(lines)
 }
 
 #[derive(Clone, Debug)]
@@ -40,7 +49,7 @@ fn sleep_map_entry(data: &NightData) -> (i32, HashSet<i32>) {
                 fell_asleep = ts.minute;
             }
             FallWake::Wake(ts) => {
-                for m in fell_asleep..ts.minute {
+                for m in fell_asleep..(ts.minute) {
                     minutes.insert(m);
                 }
             }
@@ -65,10 +74,7 @@ fn sleep_map(data: Vec<NightData>) -> HashMap<i32, HashMap<i32, i32>> {
     result
 }
 
-fn to_night_data(input: &str) -> StdResult<Vec<NightData>> {
-    let mut lines = parse_log_lines(input)?;
-    lines.sort_by(|x, y| x.timestamp().cmp(y.timestamp()));
-
+fn to_night_data(lines: Vec<LogLine>) -> Vec<NightData> {
     let mut result = vec![];
     let mut current_data: Option<NightData> = None;
     for line in &lines {
@@ -96,11 +102,16 @@ fn to_night_data(input: &str) -> StdResult<Vec<NightData>> {
         }
     }
 
-    Ok(result)
+    if let Some(data) = current_data {
+        result.push(data.clone());
+    }
+
+    result
 }
 
 fn part_one(input: &str) -> StdResult<i32> {
-    let sleep_map = sleep_map(to_night_data(input)?);
+    let lines = parse_log_lines(input)?;
+    let sleep_map = sleep_map(to_night_data(lines));
 
     let guard_id = sleepiest_guard(&sleep_map)?;
     let our_guy = sleep_map
@@ -109,11 +120,7 @@ fn part_one(input: &str) -> StdResult<i32> {
 
     let (minute, _) = our_guy
         .iter()
-        .max_by(|x, y| {
-            let (_left_k, left_v) = x;
-            let (_right_k, right_v) = y;
-            left_v.cmp(right_v)
-        })
+        .max_by(|(_, lv), (_, rv)| lv.cmp(rv))
         .ok_or("empty guard data")?;
 
     Ok(minute * guard_id)
@@ -123,11 +130,7 @@ fn sleepiest_guard(sleep_map: &HashMap<i32, HashMap<i32, i32>>) -> StdResult<i32
     let (k, _v) = sleep_map
         .iter()
         .map(|(k, v)| (k, v.values().sum::<i32>()))
-        .max_by(|x, y| {
-            let (_, lv) = x;
-            let (_, rv) = y;
-            lv.cmp(rv)
-        })
+        .max_by(|(_, lv), (_, rv)| lv.cmp(rv))
         .ok_or("empty data")?;
 
     Ok(*k)
@@ -135,7 +138,7 @@ fn sleepiest_guard(sleep_map: &HashMap<i32, HashMap<i32, i32>>) -> StdResult<i32
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 struct TimeStamp {
-    year: u32,
+    year: i32,
     month: i32,
     day: i32,
     hour: i32,
@@ -173,6 +176,7 @@ impl TimeStamp {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 enum LogLine {
     Guard(i32, TimeStamp),
     Fall(TimeStamp),
@@ -239,9 +243,39 @@ impl Ord for TimeStamp {
     }
 }
 
+fn part_two(input: &str) -> StdResult<i32> {
+    let lines = parse_log_lines(input)?;
+    let sleep_map = sleep_map(to_night_data(lines));
+
+    // sleep_map.iter().max_by_key()
+
+    let sol: (&i32, &i32) = sleep_map
+        .iter()
+        .map(|(guard_id, minutes)| {
+            minutes
+                .iter()
+                .max_by_key(|p| p.1)
+                .map(|minute_count| (guard_id, minute_count.0))
+                .unwrap()
+        })
+        .max_by(|(_lg, lm), (_rg, rm)| lm.cmp(rm))
+        .ok_or("no max found")?;
+
+    // println!("Guard: {}", sol.0);
+    // println!("Minute: {}", sol.1);
+    // println!("Sleep Map: {:#?}", sleep_map);
+    // println!("Guard Data: {:#?}", sleep_map.get(&sol.0).unwrap());
+    // let count = sleep_map.get(&sol.0).unwrap().get(&sol.1).unwrap();
+    // println!("Count: {}", count);
+
+    Ok(sol.0 * sol.1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const example_input: &str = "[1518-11-01 00:00] Guard #10 begins shift\n[1518-11-01 00:05] falls asleep\n[1518-11-01 00:25] wakes up\n[1518-11-01 00:30] falls asleep\n[1518-11-01 00:55] wakes up\n[1518-11-01 23:58] Guard #99 begins shift\n[1518-11-02 00:40] falls asleep\n[1518-11-02 00:50] wakes up\n[1518-11-03 00:05] Guard #10 begins shift\n[1518-11-03 00:24] falls asleep\n[1518-11-03 00:29] wakes up\n[1518-11-04 00:02] Guard #99 begins shift\n[1518-11-04 00:36] falls asleep\n[1518-11-04 00:46] wakes up\n[1518-11-05 00:03] Guard #99 begins shift\n[1518-11-05 00:45] falls asleep\n[1518-11-05 00:55] wakes up";
 
     #[test]
     fn parse_timestamp() {
@@ -276,9 +310,22 @@ mod tests {
     }
 
     #[test]
+    fn parse_lines() {
+        let lines = parse_log_lines(example_input).unwrap();
+        let data = to_night_data(lines);
+        // don't drop the last one!
+        assert_eq!(data.len(), 5);
+    }
+
+    #[test]
     fn part_1_example() {
-        let input = "[1518-11-01 00:00] Guard #10 begins shift\n[1518-11-01 00:05] falls asleep\n[1518-11-01 00:25] wakes up\n[1518-11-01 00:30] falls asleep\n[1518-11-01 00:55] wakes up\n[1518-11-01 23:58] Guard #99 begins shift\n[1518-11-02 00:40] falls asleep\n[1518-11-02 00:50] wakes up\n[1518-11-03 00:05] Guard #10 begins shift\n[1518-11-03 00:24] falls asleep\n[1518-11-03 00:29] wakes up\n[1518-11-04 00:02] Guard #99 begins shift\n[1518-11-04 00:36] falls asleep\n[1518-11-04 00:46] wakes up\n[1518-11-05 00:03] Guard #99 begins shift\n[1518-11-05 00:45] falls asleep\n[1518-11-05 00:55] wakes up";
-        let result = part_one(input).unwrap();
+        let result = part_one(example_input).unwrap();
         assert_eq!(240, result);
+    }
+
+    #[test]
+    fn part_2_example() {
+        let result = part_two(example_input).unwrap();
+        assert_eq!(4455, result);
     }
 }
