@@ -40,38 +40,42 @@ struct NightData {
 }
 
 // map of guard id to minutes asleep
-fn sleep_map_entry(data: &NightData) -> (i32, HashSet<i32>) {
+fn sleep_map_entry(data: &NightData) -> StdResult<(i32, HashSet<i32>)> {
     let mut minutes = HashSet::new();
-    let mut fell_asleep = 0;
+    let mut fell_asleep = None;
     for event in &data.events {
         match event {
             FallWake::Fall(ts) => {
-                fell_asleep = ts.minute;
+                fell_asleep = Some(ts.minute);
             }
             FallWake::Wake(ts) => {
-                for m in fell_asleep..(ts.minute) {
-                    minutes.insert(m);
+                if let Some(fell_asleep) = fell_asleep {
+                    for m in fell_asleep..(ts.minute) {
+                        minutes.insert(m);
+                    }
+                } else {
+                    Err("guard's log began with a wake")?
                 }
             }
         }
     }
 
-    (data.guard_id, minutes)
+    Ok((data.guard_id, minutes))
 }
 
 // guard id to map of minute of hour to minutes slept
-fn sleep_map(data: Vec<NightData>) -> HashMap<i32, HashMap<i32, i32>> {
+fn sleep_map(data: Vec<NightData>) -> StdResult<HashMap<i32, HashMap<i32, i32>>> {
     let mut result = HashMap::new();
     for datum in &data {
-        let (guard_id, minutes) = sleep_map_entry(datum);
-        let entry = result.entry(guard_id).or_insert_with(|| HashMap::new());
+        let (guard_id, minutes) = sleep_map_entry(datum)?;
+        let minutes_map = result.entry(guard_id).or_insert_with(|| HashMap::new());
         for m in &minutes {
-            let minutes_slept: &mut i32 = (*entry).entry(*m).or_insert(0 as i32);
+            let minutes_slept: &mut i32 = (*minutes_map).entry(*m).or_insert(0 as i32);
             *minutes_slept += 1;
         }
     }
 
-    result
+    Ok(result)
 }
 
 fn to_night_data(lines: Vec<LogLine>) -> Vec<NightData> {
@@ -111,7 +115,7 @@ fn to_night_data(lines: Vec<LogLine>) -> Vec<NightData> {
 
 fn part_one(input: &str) -> StdResult<i32> {
     let lines = parse_log_lines(input)?;
-    let sleep_map = sleep_map(to_night_data(lines));
+    let sleep_map = sleep_map(to_night_data(lines))?;
 
     let guard_id = sleepiest_guard(&sleep_map)?;
     let our_guy = sleep_map
@@ -245,37 +249,32 @@ impl Ord for TimeStamp {
 
 fn part_two(input: &str) -> StdResult<i32> {
     let lines = parse_log_lines(input)?;
-    let sleep_map = sleep_map(to_night_data(lines));
+    let data = to_night_data(lines);
+    let sleep_map = sleep_map(data)?;
+    Ok(solve_part_two(sleep_map))
+}
 
-    // sleep_map.iter().max_by_key()
-
-    let sol: (&i32, &i32) = sleep_map
+fn solve_part_two(sleep_map: HashMap<i32, HashMap<i32, i32>>) -> i32 {
+    let (guard_id, minute_of_hour, _minutes_slept) = sleep_map
         .iter()
-        .map(|(guard_id, minutes)| {
+        .map(|(&guard_id, minutes)| {
             minutes
                 .iter()
-                .max_by_key(|p| p.1)
-                .map(|minute_count| (guard_id, minute_count.0))
-                .unwrap()
+                .max_by_key(|(_m, &c)| c)
+                .map(|(&m, &c)| (guard_id, m, c))
+                .unwrap_or((guard_id, 0, 0))
         })
-        .max_by(|(_lg, lm), (_rg, rm)| lm.cmp(rm))
-        .ok_or("no max found")?;
+        .max_by(|(_, _, l_total), (_, _, r_total)| l_total.cmp(&r_total))
+        .unwrap();
 
-    // println!("Guard: {}", sol.0);
-    // println!("Minute: {}", sol.1);
-    // println!("Sleep Map: {:#?}", sleep_map);
-    // println!("Guard Data: {:#?}", sleep_map.get(&sol.0).unwrap());
-    // let count = sleep_map.get(&sol.0).unwrap().get(&sol.1).unwrap();
-    // println!("Count: {}", count);
-
-    Ok(sol.0 * sol.1)
+    guard_id * minute_of_hour
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const example_input: &str = "[1518-11-01 00:00] Guard #10 begins shift\n[1518-11-01 00:05] falls asleep\n[1518-11-01 00:25] wakes up\n[1518-11-01 00:30] falls asleep\n[1518-11-01 00:55] wakes up\n[1518-11-01 23:58] Guard #99 begins shift\n[1518-11-02 00:40] falls asleep\n[1518-11-02 00:50] wakes up\n[1518-11-03 00:05] Guard #10 begins shift\n[1518-11-03 00:24] falls asleep\n[1518-11-03 00:29] wakes up\n[1518-11-04 00:02] Guard #99 begins shift\n[1518-11-04 00:36] falls asleep\n[1518-11-04 00:46] wakes up\n[1518-11-05 00:03] Guard #99 begins shift\n[1518-11-05 00:45] falls asleep\n[1518-11-05 00:55] wakes up";
+    const EXAMPLE_INPUT: &str = "[1518-11-01 00:00] Guard #10 begins shift\n[1518-11-01 00:05] falls asleep\n[1518-11-01 00:25] wakes up\n[1518-11-01 00:30] falls asleep\n[1518-11-01 00:55] wakes up\n[1518-11-01 23:58] Guard #99 begins shift\n[1518-11-02 00:40] falls asleep\n[1518-11-02 00:50] wakes up\n[1518-11-03 00:05] Guard #10 begins shift\n[1518-11-03 00:24] falls asleep\n[1518-11-03 00:29] wakes up\n[1518-11-04 00:02] Guard #99 begins shift\n[1518-11-04 00:36] falls asleep\n[1518-11-04 00:46] wakes up\n[1518-11-05 00:03] Guard #99 begins shift\n[1518-11-05 00:45] falls asleep\n[1518-11-05 00:55] wakes up";
 
     #[test]
     fn parse_timestamp() {
@@ -311,21 +310,28 @@ mod tests {
 
     #[test]
     fn parse_lines() {
-        let lines = parse_log_lines(example_input).unwrap();
+        let lines = parse_log_lines(EXAMPLE_INPUT).unwrap();
         let data = to_night_data(lines);
-        // don't drop the last one!
         assert_eq!(data.len(), 5);
     }
 
     #[test]
     fn part_1_example() {
-        let result = part_one(example_input).unwrap();
+        let result = part_one(EXAMPLE_INPUT).unwrap();
         assert_eq!(240, result);
     }
 
     #[test]
     fn part_2_example() {
-        let result = part_two(example_input).unwrap();
+        let result = part_two(EXAMPLE_INPUT).unwrap();
         assert_eq!(4455, result);
+    }
+
+    #[test]
+    fn part_2_for_real() {
+        let input = include_str!("../input/day_4_input.txt");
+        let solution_two = part_two(input).unwrap();
+
+        assert_eq!(solution_two, 22687);
     }
 }
