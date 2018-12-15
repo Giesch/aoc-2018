@@ -3,13 +3,10 @@ use std::str;
 type StdResult<T> = Result<T, Box<std::error::Error>>;
 
 fn main() -> StdResult<()> {
-    let input = include_str!("../input/day_5_input.txt");
+    let input = include_str!("../input/day_5_input.txt").trim();
 
     let solution_one = part_one(input)?;
     println!("Part One: {}", solution_one);
-
-    // let solution_two = part_two(input)?;
-    // println!("Part Two: {}", solution_two);
 
     Ok(())
 }
