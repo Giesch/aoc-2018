@@ -70,7 +70,7 @@ fn sleep_map(data: Vec<NightData>) -> StdResult<HashMap<i32, HashMap<i32, i32>>>
         let (guard_id, minutes) = sleep_map_entry(datum)?;
         let minutes_map = result.entry(guard_id).or_insert_with(|| HashMap::new());
         for m in &minutes {
-            let minutes_slept: &mut i32 = (*minutes_map).entry(*m).or_insert(0 as i32);
+            let minutes_slept = (*minutes_map).entry(*m).or_insert(0);
             *minutes_slept += 1;
         }
     }
