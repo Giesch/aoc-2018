@@ -14,7 +14,39 @@ fn main() -> StdResult<()> {
     let solution_one = part_one(input)?;
     println!("Part One: {}", solution_one);
 
+    let solution_two = part_two(input)?;
+    println!("Part Two: {}", solution_two);
+
     Ok(())
+}
+
+fn part_two(input: &str) -> StdResult<usize> {
+    let coords = parse_coordinates(input)?;
+    let grid = count_distances(coords)?;
+    let sol = grid.values().filter(|&&count| count < 10_000).count();
+    Ok(sol)
+}
+
+fn count_distances(centers: Vec<Coord>) -> StdResult<HashMap<Coord, usize>> {
+    let (x_max, y_max) = maximums(&centers)?;
+    let mut result = HashMap::new();
+
+    for x in 0..=x_max {
+        for y in 0..=y_max {
+            let coordinate = (x, y);
+            for center in &centers {
+                let distance = manhattan(coordinate, *center);
+                let total = result.entry(coordinate).or_insert(0);
+                *total += distance;
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+fn manhattan(a: Coord, b: Coord) -> usize {
+    ((a.0 - b.0).abs() + (a.1 - b.1).abs()) as usize
 }
 
 fn part_one(input: &str) -> StdResult<usize> {
