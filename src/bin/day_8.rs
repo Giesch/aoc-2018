@@ -18,32 +18,6 @@ fn part_one(input: &str) -> StdResult<usize> {
     Ok(sum)
 }
 
-fn part_two(input: &str) -> StdResult<usize> {
-    let node = parse_input(input)?;
-    let value = value(&node);
-    Ok(value)
-}
-
-fn value(node: &Node) -> usize {
-    if node.children.is_empty() {
-        return node.metadata.iter().sum();
-    }
-
-    let indicies: Vec<_> = node
-        .metadata
-        .iter()
-        .map(|i| i - 1)
-        .filter(|&i| i < node.children.len())
-        .collect();
-
-    let mut val = 0;
-    for index in indicies {
-        val += value(&node.children[index])
-    }
-
-    val
-}
-
 fn sum_metadata(node: Node) -> usize {
     let mut sum = node.metadata.iter().sum();
     for child in node.children {
@@ -90,6 +64,32 @@ fn parse_node(mut v: Vec<usize>) -> (Node, Vec<usize>) {
     let node = Node { metadata, children };
 
     (node, v)
+}
+
+fn part_two(input: &str) -> StdResult<usize> {
+    let node = parse_input(input)?;
+    let value = value(&node);
+    Ok(value)
+}
+
+fn value(node: &Node) -> usize {
+    if node.children.is_empty() {
+        return node.metadata.iter().sum();
+    }
+
+    let indicies: Vec<_> = node
+        .metadata
+        .iter()
+        .map(|i| i - 1)
+        .filter(|&i| i < node.children.len())
+        .collect();
+
+    let mut val = 0;
+    for index in indicies {
+        val += value(&node.children[index])
+    }
+
+    val
 }
 
 #[cfg(test)]
