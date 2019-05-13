@@ -1,10 +1,16 @@
+#![feature(vecdeque_rotate)]
+
 use std::collections::HashMap;
+use std::collections::VecDeque;
 
 type StdResult<T> = Result<T, Box<std::error::Error>>;
 
 fn main() -> StdResult<()> {
     let solution_one = part_one(400, 71_864);
     println!("Part One: {}", solution_one);
+
+    let solution_two = part_two(400, 7_186_400);
+    println!("Part Two: {}", solution_two);
 
     Ok(())
 }
@@ -24,6 +30,37 @@ fn part_one(players: usize, last_marble_val: usize) -> usize {
     }
 
     *scores.values().max().unwrap()
+}
+
+fn part_two(players: usize, last_marble_val: usize) -> usize {
+    let mut circle = VecDeque::new();
+    circle.push_front(0);
+    let mut scores = HashMap::new();
+
+    for turn in 1..=last_marble_val {
+        let (new_circle, score) = new_add_marble(circle, turn);
+        circle = new_circle;
+
+        let player = turn % players;
+        let player_score = scores.entry(player).or_insert(0);
+        *player_score += score;
+    }
+
+    *scores.values().max().unwrap()
+}
+
+fn new_add_marble(mut circle: VecDeque<usize>, next_marble: usize) -> (VecDeque<usize>, usize) {
+    if next_marble % 23 == 0 {
+        let mut score = next_marble;
+        circle.rotate_right(7);
+        score += circle.pop_front().unwrap();
+        return (circle, score);
+    }
+
+    circle.rotate_left(1);
+    circle.rotate_left(1);
+    circle.push_front(next_marble);
+    (circle, 0)
 }
 
 fn add_marble(
@@ -118,6 +155,18 @@ mod tests {
         assert_eq!(result, 8317);
 
         let result = part_one(13, 7999);
+        assert_eq!(result, 146373);
+    }
+
+    #[test]
+    fn part_two_examples() {
+        let result = part_two(9, 25);
+        assert_eq!(result, 32);
+
+        let result = part_two(10, 1618);
+        assert_eq!(result, 8317);
+
+        let result = part_two(13, 7999);
         assert_eq!(result, 146373);
     }
 
