@@ -6,6 +6,9 @@ fn main() -> StdResult<()> {
     let solution_one = part_one(input)?;
     println!("Part One: {}", solution_one);
 
+    let solution_two = part_two(input)?;
+    println!("Part Two: {}", solution_two);
+
     Ok(())
 }
 
@@ -13,6 +16,32 @@ fn part_one(input: &str) -> StdResult<usize> {
     let node = parse_input(input)?;
     let sum = sum_metadata(node);
     Ok(sum)
+}
+
+fn part_two(input: &str) -> StdResult<usize> {
+    let node = parse_input(input)?;
+    let value = value(&node);
+    Ok(value)
+}
+
+fn value(node: &Node) -> usize {
+    if node.children.is_empty() {
+        return node.metadata.iter().sum();
+    }
+
+    let indicies: Vec<_> = node
+        .metadata
+        .iter()
+        .map(|i| i - 1)
+        .filter(|&i| i < node.children.len())
+        .collect();
+
+    let mut val = 0;
+    for index in indicies {
+        val += value(&node.children[index])
+    }
+
+    val
 }
 
 fn sum_metadata(node: Node) -> usize {
@@ -70,9 +99,15 @@ mod tests {
     const EXAMPLE_INPUT: &str = "2 3 0 3 10 11 12 1 1 0 1 99 2 1 1 2";
 
     #[test]
-    fn parsing() {
+    fn part_one_test() {
         let result = part_one(EXAMPLE_INPUT).unwrap();
         assert_eq!(result, 138);
+    }
+
+    #[test]
+    fn part_two_test() {
+        let result = part_two(EXAMPLE_INPUT).unwrap();
+        assert_eq!(result, 66);
     }
 
 }
